@@ -5,9 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -17,41 +14,64 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.13'
 
-    - name: Install dependencies
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install nuitka
 
+    - name: Install dependencies (Linux / macOS)
+      if: matrix.os != 'windows-latest'
+      run: |
+        python -m pip install --upgrade pip
+        grep -v "pywin32" requirements.txt | pip install -r /dev/stdin
+        pip install nuitka
+
     - name: Install Linux build tools
       if: matrix.os == 'ubuntu-latest'
-      run: sudo apt update && sudo apt install -y build-essential python3-dev
+      run: sudo apt update && sudo apt install -y build-essential python3-dev patchelf
 
     - name: Install macOS build tools
       if: matrix.os == 'macos-latest'
       run: xcode-select --install || true
 
-    - name: Compile with Nuitka
-      run: |
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          python -m nuitka --onefile main.py
-        else
-          python3 -m nuitka --onefile main.py
-        fi
-      shell: bash
+    - name: Compile with Nuitka (Windows)
+      if: matrix.os == 'windows-latest'
+      run: python -m nuitka --onefile --output-filename=main.exe main.py
 
-    - name: Upload build
-      if: always()
+    - name: Compile with Nuitka (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: python3 -m nuitka --onefile --output-filename=main.bin main.py
+
+    - name: Compile with Nuitka (macOS)
+      if: matrix.os == 'macos-latest'
+      run: python3 -m nuitka --onefile --output-filename=main.app main.py
+
+    - name: Upload build (Windows)
+      if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: Roswap-${{ matrix.os }}
-        path: |
-          main.exe
-          main
+        name: Roswap-windows
+        path: main.exe
+
+    - name: Upload build (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: Roswap-linux
+        path: main.bin
+
+    - name: Upload build (macOS)
+      if: matrix.os == 'macos-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: Roswap-macos
+        path: main.app
