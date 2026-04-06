@@ -1,0 +1,45 @@
+name: Build Roswap
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install nuitka
+
+    - name: Compile with Nuitka
+      run: |
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          python -m nuitka --onefile main.py
+        else
+          python3 -m nuitka --onefile main.py
+        fi
+      shell: bash
+
+    - name: Upload build
+      uses: actions/upload-artifact@v3
+      with:
+        name: Roswap-${{ matrix.os }}
+        path: |
+          main.exe
+          main
