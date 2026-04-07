@@ -75,6 +75,39 @@ jobs:
         tar -xzf jre.tar.gz
         mv jdk-21.0.5+11-jre/Contents/Home jre
 
+    # Delete py5 native libs that don't belong on the current platform.
+    # Nuitka validates every file it finds before --noinclude-data-files runs,
+    # so we must remove them from disk first.
+    - name: Strip foreign py5 natives (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: bash
+      run: |
+        PY5_NATIVES=$(python -c "import py5, os; print(os.path.join(os.path.dirname(py5.__file__), 'natives'))")
+        rm -rf "$PY5_NATIVES/android-aarch64"
+        rm -rf "$PY5_NATIVES/android-armv6"
+        rm -rf "$PY5_NATIVES/linux-amd64"
+        rm -rf "$PY5_NATIVES/linux-armv6hf"
+        rm -rf "$PY5_NATIVES/macosx-universal"
+
+    - name: Strip foreign py5 natives (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        PY5_NATIVES=$(python3 -c "import py5, os; print(os.path.join(os.path.dirname(py5.__file__), 'natives'))")
+        rm -rf "$PY5_NATIVES/android-aarch64"
+        rm -rf "$PY5_NATIVES/android-armv6"
+        rm -rf "$PY5_NATIVES/macosx-universal"
+        rm -rf "$PY5_NATIVES/windows-amd64"
+
+    - name: Strip foreign py5 natives (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        PY5_NATIVES=$(python3 -c "import py5, os; print(os.path.join(os.path.dirname(py5.__file__), 'natives'))")
+        rm -rf "$PY5_NATIVES/android-aarch64"
+        rm -rf "$PY5_NATIVES/android-armv6"
+        rm -rf "$PY5_NATIVES/linux-amd64"
+        rm -rf "$PY5_NATIVES/linux-armv6hf"
+        rm -rf "$PY5_NATIVES/windows-amd64"
+
     - name: Compile with Nuitka (Windows)
       if: matrix.os == 'windows-latest'
       run: >
@@ -91,9 +124,6 @@ jobs:
         --include-package=rooms
         --include-package=ui
         --include-data-dir=jre=jre
-        --noinclude-data-files=**/py5/natives/android*
-        --noinclude-data-files=**/py5/natives/linux*
-        --noinclude-data-files=**/py5/natives/macosx*
         main.py
 
     - name: Compile with Nuitka (Linux)
@@ -112,9 +142,6 @@ jobs:
         --include-package=rooms
         --include-package=ui
         --include-data-dir=jre=jre
-        --noinclude-data-files=**/py5/natives/android*
-        --noinclude-data-files=**/py5/natives/windows*
-        --noinclude-data-files=**/py5/natives/macosx*
         main.py
 
     - name: Compile with Nuitka (macOS)
@@ -134,9 +161,6 @@ jobs:
         --include-package=rooms
         --include-package=ui
         --include-data-dir=jre=jre
-        --noinclude-data-files=**/py5/natives/android*
-        --noinclude-data-files=**/py5/natives/linux*
-        --noinclude-data-files=**/py5/natives/windows*
         main.py
 
     - name: Upload build (Windows)
