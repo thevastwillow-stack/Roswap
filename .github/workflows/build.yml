@@ -53,8 +53,6 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: xcode-select --install || true
 
-    # Download a minimal JRE and place it in ./jre so Nuitka can bundle it.
-    # This means users do NOT need Java installed on their machine.
     - name: Bundle JRE (Windows)
       if: matrix.os == 'windows-latest'
       shell: bash
@@ -93,6 +91,9 @@ jobs:
         --include-package=rooms
         --include-package=ui
         --include-data-dir=jre=jre
+        --noinclude-data-files=**/py5/natives/android*
+        --noinclude-data-files=**/py5/natives/linux*
+        --noinclude-data-files=**/py5/natives/macosx*
         main.py
 
     - name: Compile with Nuitka (Linux)
@@ -111,6 +112,9 @@ jobs:
         --include-package=rooms
         --include-package=ui
         --include-data-dir=jre=jre
+        --noinclude-data-files=**/py5/natives/android*
+        --noinclude-data-files=**/py5/natives/windows*
+        --noinclude-data-files=**/py5/natives/macosx*
         main.py
 
     - name: Compile with Nuitka (macOS)
@@ -120,6 +124,7 @@ jobs:
         --mode=app
         --assume-yes-for-downloads
         --output-filename=main.app
+        --macos-app-icon=none
         --include-package=py5
         --include-package=jpype
         --include-package-data=py5
@@ -129,6 +134,9 @@ jobs:
         --include-package=rooms
         --include-package=ui
         --include-data-dir=jre=jre
+        --noinclude-data-files=**/py5/natives/android*
+        --noinclude-data-files=**/py5/natives/linux*
+        --noinclude-data-files=**/py5/natives/windows*
         main.py
 
     - name: Upload build (Windows)
