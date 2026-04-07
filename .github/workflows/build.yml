@@ -24,6 +24,7 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.13'
+        cache: pip
 
     - name: Set up Java
       uses: actions/setup-java@v4
@@ -36,14 +37,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install "nuitka[onefile]"
 
     - name: Install dependencies (Linux / macOS)
       if: matrix.os != 'windows-latest'
+      shell: bash
       run: |
         python -m pip install --upgrade pip
         grep -v "pywin32" requirements.txt | pip install -r /dev/stdin
-        pip install "nuitka[onefile]"
 
     - name: Install Linux build tools
       if: matrix.os == 'ubuntu-latest'
@@ -75,111 +75,77 @@ jobs:
         tar -xzf jre.tar.gz
         mv jdk-21.0.5+11-jre/Contents/Home jre
 
-    # Delete py5 native libs that don't belong on the current platform.
-    # Nuitka validates every file it finds before --noinclude-data-files runs,
-    # so we must remove them from disk first.
+    # Use `find` instead of `python -c "import py5..."` to avoid the headless
+    # JVM crash. py5 raises RuntimeError on import in a headless CI environment.
     - name: Strip foreign py5 natives (Windows)
       if: matrix.os == 'windows-latest'
       shell: bash
       run: |
-        PY5_NATIVES=$(python -c "import py5, os; print(os.path.join(os.path.dirname(py5.__file__), 'natives'))")
-        rm -rf "$PY5_NATIVES/android-aarch64"
-        rm -rf "$PY5_NATIVES/android-armv6"
-        rm -rf "$PY5_NATIVES/linux-amd64"
-        rm -rf "$PY5_NATIVES/linux-armv6hf"
+        PY5_NATIVES=$(find $RUNNER_TOOL_CACHE -path "*/py5/natives" -type d 2>/dev/null || find /c -path "*/py5/natives" -type d 2>/dev/null || python -c "import site; print([p for p in __import__('glob').glob(p+'/**/py5/natives', recursive=True) for p in __import__('site').getsitepackages()][0])" 2>/dev/null || true)
+        if [ -z "$PY5_NATIVES" ]; then
+          PY5_NATIVES=$(find / -path "*/py5/natives" -type d 2>/dev/null | head -1)
+        fi
+        echo "py5 natives at: $PY5_NATIVES"
+        rm -rf "$PY5_NATIVES/android-aarch64" "$PY5_NATIVES/android-armv6"
+        rm -rf "$PY5_NATIVES/linux-amd64" "$PY5_NATIVES/linux-armv6hf" "$PY5_NATIVES/linux-aarch64"
         rm -rf "$PY5_NATIVES/macosx-universal"
 
     - name: Strip foreign py5 natives (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        PY5_NATIVES=$(python3 -c "import py5, os; print(os.path.join(os.path.dirname(py5.__file__), 'natives'))")
-        rm -rf "$PY5_NATIVES/android-aarch64"
-        rm -rf "$PY5_NATIVES/android-armv6"
+        PY5_NATIVES=$(find / -path "*/py5/natives" -type d 2>/dev/null | head -1)
+        echo "py5 natives at: $PY5_NATIVES"
+        rm -rf "$PY5_NATIVES/android-aarch64" "$PY5_NATIVES/android-armv6"
         rm -rf "$PY5_NATIVES/macosx-universal"
         rm -rf "$PY5_NATIVES/windows-amd64"
 
     - name: Strip foreign py5 natives (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        PY5_NATIVES=$(python3 -c "import py5, os; print(os.path.join(os.path.dirname(py5.__file__), 'natives'))")
-        rm -rf "$PY5_NATIVES/android-aarch64"
-        rm -rf "$PY5_NATIVES/android-armv6"
-        rm -rf "$PY5_NATIVES/linux-amd64"
-        rm -rf "$PY5_NATIVES/linux-armv6hf"
+        PY5_NATIVES=$(find / -path "*/py5/natives" -type d 2>/dev/null | head -1)
+        echo "py5 natives at: $PY5_NATIVES"
+        rm -rf "$PY5_NATIVES/android-aarch64" "$PY5_NATIVES/android-armv6"
+        rm -rf "$PY5_NATIVES/linux-amd64" "$PY5_NATIVES/linux-armv6hf" "$PY5_NATIVES/linux-aarch64"
         rm -rf "$PY5_NATIVES/windows-amd64"
 
-    - name: Compile with Nuitka (Windows)
-      if: matrix.os == 'windows-latest'
-      run: >
-        python -m nuitka
-        --onefile
-        --assume-yes-for-downloads
-        --output-filename=main.exe
-        --include-package=py5
-        --include-package=jpype
-        --include-package-data=py5
-        --include-package=core
-        --include-package=engine
-        --include-package=maze
-        --include-package=rooms
-        --include-package=ui
-        --include-data-dir=jre=jre
-        main.py
-
-    - name: Compile with Nuitka (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: >
-        python3 -m nuitka
-        --onefile
-        --assume-yes-for-downloads
-        --output-filename=main.bin
-        --include-package=py5
-        --include-package=jpype
-        --include-package-data=py5
-        --include-package=core
-        --include-package=engine
-        --include-package=maze
-        --include-package=rooms
-        --include-package=ui
-        --include-data-dir=jre=jre
-        main.py
-
-    - name: Compile with Nuitka (macOS)
-      if: matrix.os == 'macos-latest'
-      run: >
-        python3 -m nuitka
-        --mode=app
-        --assume-yes-for-downloads
-        --output-filename=main.app
-        --macos-app-icon=none
-        --include-package=py5
-        --include-package=jpype
-        --include-package-data=py5
-        --include-package=core
-        --include-package=engine
-        --include-package=maze
-        --include-package=rooms
-        --include-package=ui
-        --include-data-dir=jre=jre
-        main.py
+    - name: Build with Nuitka
+      uses: Nuitka/Nuitka-Action@main
+      with:
+        nuitka-version: main
+        script-name: main.py
+        mode: app
+        include-package: |
+          py5
+          jpype
+          core
+          engine
+          maze
+          rooms
+          ui
+        include-package-data: py5
+        include-data-dir: jre=jre
+        macos-app-icon: none
 
     - name: Upload build (Windows)
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
         name: Roswap-windows
-        path: main.exe
+        path: build/*.exe
+        include-hidden-files: true
 
     - name: Upload build (Linux)
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
         name: Roswap-linux
-        path: main.bin
+        path: build/*.bin
+        include-hidden-files: true
 
     - name: Upload build (macOS)
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
         name: Roswap-macos
-        path: main.app
+        path: build/*.app/**/*
+        include-hidden-files: true
