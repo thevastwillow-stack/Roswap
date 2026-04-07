@@ -1,0 +1,16 @@
+autopep8==2.3.2
+certifi==2026.2.25
+charset-normalizer==3.4.7
+idna==3.11
+jpype1==1.6.0
+line_profiler==5.0.2
+numpy==2.4.4
+packaging==26.0
+pillow==12.2.0
+py5==0.10.9a1
+pycodestyle==2.14.0
+pywin32==311
+requests==2.33.1
+stackprinter==0.2.12
+typing_extensions==4.15.0
+urllib3==2.6.3
