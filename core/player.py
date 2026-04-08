@@ -36,16 +36,14 @@ class Player:
         else:
             speed = -PLAYER_SPEED
 
-        if self.rotation in (0, 180):
-            if self.rotation == 0:
-                self.vel_x = speed
-            else:
-                self.vel_x = -speed
+        if self.rotation == 0:
+            self.vel_x = speed
+        elif self.rotation == 90:
+            self.vel_y = speed
+        elif self.rotation == 180:
+            self.vel_x = -speed
         else:
-            if self.rotation == 90:
-                self.vel_y = speed
-            else:
-                self.vel_y = -speed
+            self.vel_y = -speed
 
     def jump(self):
         if not self.on_ground:

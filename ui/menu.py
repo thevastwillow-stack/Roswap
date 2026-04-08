@@ -1,13 +1,12 @@
 import py5
-from core.constants import flags, SCREEN_WIDTH, SCREEN_HEIGHT, COLORS
+from core.constants import flags, SCREEN_WIDTH, SCREEN_HEIGHT, COLORS, DIFFICULTY_GRID
 from core.utils import Rect
 
 _PI_SEQ = "3141592653"
 
 _DIFFICULTIES = [
-    ("easy", "Easy — 7×7"),
-    ("medium", "Medium — 13×13"),
-    ("hard", "Hard — 17×17"),
+    (key, f"{key.capitalize()} — {size}×{size}")
+    for key, size in DIFFICULTY_GRID.items()
 ]
 
 _BTN_W = 320
@@ -51,10 +50,9 @@ class Menu:
         for btn in self._buttons:
             rect = btn["rect"]
             is_hov = rect.contains(mx, my)
-            if is_hov:
-                self.hovered = btn["key"]
             py5.no_stroke()
             if is_hov:
+                self.hovered = btn["key"]
                 py5.fill(80, 80, 80)
             else:
                 py5.fill(50, 50, 50)
