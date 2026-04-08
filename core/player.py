@@ -4,13 +4,12 @@ from core.constants import (
     flags,
     PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MAX_HP, PLAYER_SPEED,
     JUMP_FORCE, GRAVITY, FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER,
-    COLORS,
+    COLORS, MAX_VEL
 )
 from core.utils import Rect
 
 _GRAVITY_VEC = {0: (0, GRAVITY), 90: (GRAVITY, 0), 180: (0, -GRAVITY), 270: (-GRAVITY, 0)}
 _JUMP_VEC = {0: (0, -JUMP_FORCE), 90: (-JUMP_FORCE, 0), 180: (0, JUMP_FORCE), 270: (JUMP_FORCE, 0)}
-
 
 class Player:
 
@@ -53,11 +52,11 @@ class Player:
         self.vel_y = jy
 
     def update(self, dt, platforms):
+        global MAX_VEL
         gx, gy = _GRAVITY_VEC[self.rotation]
         self.vel_x += gx * dt
         self.vel_y += gy * dt
 
-        MAX_VEL = 1200.0
         if self.vel_x < -MAX_VEL:
             self.vel_x = -MAX_VEL
         elif self.vel_x > MAX_VEL:
