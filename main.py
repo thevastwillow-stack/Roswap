@@ -11,7 +11,7 @@ from engine.camera import Camera
 from engine.controls import Controls
 from ui.hud import HUD
 from ui.menu import Menu
-from maze.generator import MazeGenerator, find_neighbour
+from core.maze import MazeGenerator, find_neighbour
 from rooms.registry import get_room
 
 game_state = 'MENU'
