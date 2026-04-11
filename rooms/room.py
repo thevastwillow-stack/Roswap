@@ -1,8 +1,13 @@
 import py5
+import random
+import colorsys
 from core.utils import Rect
 from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, WALL, GAP, GAP_START, GAP_END, COLORS
 
 _EXIT_DEPTH = 16
+_LIGHT_MARGIN = WALL + 80
+_LIGHT_RINGS = 12
+_LIGHT_MAX_RADIUS = 320
 
 
 class Room:
@@ -16,6 +21,14 @@ class Room:
         self.exit_zones["south"] = None
         self.exit_zones["east"] = None
         self.exit_zones["west"] = None
+
+        m = _LIGHT_MARGIN
+        self.light_x = random.randint(m, SCREEN_WIDTH - m)
+        self.light_y = random.randint(m, SCREEN_HEIGHT - m)
+        h = random.random()
+        r, g, b = colorsys.hsv_to_rgb(h, 0.85, 1.0)
+        self.light_color = (int(r * 255), int(g * 255), int(b * 255))
+
         self._build_walls()
         self.setup()
         self._build_exit_zones()
@@ -96,6 +109,7 @@ class Room:
     def draw(self):
         py5.no_stroke()
         py5.background(*COLORS["background"])
+        self._draw_light()
         py5.fill(*COLORS["platform"])
         for p in self.platforms:
             py5.rect(p.x, p.y, p.w, p.h)
@@ -103,3 +117,18 @@ class Room:
         for zone in self.exit_zones.values():
             if zone:
                 py5.rect(zone.x, zone.y, zone.w, zone.h)
+
+    def _draw_light(self):
+        lx, ly = self.light_x, self.light_y
+        lr, lg, lb = self.light_color
+
+        py5.no_stroke()
+        for i in range(_LIGHT_RINGS, -1, -1):
+            t = i / _LIGHT_RINGS
+            radius = _LIGHT_MAX_RADIUS * t
+            alpha = int((1.0 - t) ** 1.8 * 170)
+            py5.fill(lr, lg, lb, alpha)
+            py5.ellipse(lx, ly, radius * 2, radius * 2)
+
+        py5.fill(lr, lg, lb, 230)
+        py5.ellipse(lx, ly, 12, 12)

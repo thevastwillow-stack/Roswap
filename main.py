@@ -63,13 +63,17 @@ def draw():
 def _update_playing(dt):
     global game_state
 
+    if camera.is_animating():
+        camera.update(dt)
+        return
+
     if controls.is_held('move_left', keys_held):
         player.move('left')
     if controls.is_held('move_right', keys_held):
         player.move('right')
 
     player.update(dt, current_room.get_platforms())
-    camera.set_rotation(player.rotation)
+    camera.update(dt)
     hud.update(dt)
 
     if player.is_dead():
@@ -134,7 +138,7 @@ def _start_game(difficulty):
     current_anchor = start_anchor
     current_room = rooms[current_anchor]
     player = Player(*current_room.spawn_point('none'))
-    camera.set_rotation(0)
+    camera.reset()
     game_state = 'PLAYING'
 
 
@@ -151,11 +155,13 @@ def key_pressed():
             player.jump()
         elif action == 'rotate_clockwise':
             player.rotate('clockwise')
+            camera.start_rotation(player.rotation)
             if not flags["no_swap"]:
                 swap = controls.rotate_world('clockwise')
                 hud.notify_swap(swap)
         elif action == 'rotate_counter_clockwise':
             player.rotate('counter_clockwise')
+            camera.start_rotation(player.rotation)
             if not flags["no_swap"]:
                 swap = controls.rotate_world('counter_clockwise')
                 hud.notify_swap(swap)

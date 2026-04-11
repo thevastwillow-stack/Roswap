@@ -1,97 +1,134 @@
 import py5
-from engine.collision import resolve
-from core.constants import (
-    flags,
-    PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_MAX_HP, PLAYER_SPEED,
-    JUMP_FORCE, GRAVITY, FALL_DAMAGE_THRESHOLD, FALL_DAMAGE_MULTIPLIER,
-    COLORS, MAX_VEL
-)
+import random
+import colorsys
 from core.utils import Rect
+from core.constants import SCREEN_WIDTH, SCREEN_HEIGHT, WALL, GAP, GAP_START, GAP_END, COLORS
 
-_GRAVITY_VEC = {0: (0, GRAVITY), 90: (GRAVITY, 0), 180: (0, -GRAVITY), 270: (-GRAVITY, 0)}
-_JUMP_VEC = {0: (0, -JUMP_FORCE), 90: (-JUMP_FORCE, 0), 180: (0, JUMP_FORCE), 270: (JUMP_FORCE, 0)}
+_EXIT_DEPTH = 16
+_LIGHT_MARGIN = WALL + 80
+_LIGHT_RINGS = 6
+_LIGHT_MAX_RADIUS = 180
 
-class Player:
 
-    def __init__(self, x, y):
-        self.rect = Rect(x, y, PLAYER_WIDTH, PLAYER_HEIGHT)
-        self.vel_x = 0.0
-        self.vel_y = 0.0
-        self.on_ground = False
-        self.rotation = 0
-        self.hp = float(PLAYER_MAX_HP)
+class Room:
+    def __init__(self, openings):
+        self.width = SCREEN_WIDTH
+        self.height = SCREEN_HEIGHT
+        self.openings = openings
+        self.platforms = []
+        self.exit_zones = {}
+        self.exit_zones["north"] = None
+        self.exit_zones["south"] = None
+        self.exit_zones["east"] = None
+        self.exit_zones["west"] = None
 
-    def rotate(self, direction):
-        if direction == "clockwise":
-            self.rotation = (self.rotation + 90) % 360
+        m = _LIGHT_MARGIN
+        self.light_x = random.randint(m, SCREEN_WIDTH - m)
+        self.light_y = random.randint(m, SCREEN_HEIGHT - m)
+        h = random.random()
+        r, g, b = colorsys.hsv_to_rgb(h, 0.85, 1.0)
+        self.light_color = (int(r * 255), int(g * 255), int(b * 255))
+
+        self._build_walls()
+        self.setup()
+        self._build_exit_zones()
+
+    def _wall(self, *args):
+        self.platforms.append(Rect(*args))
+
+    def _build_walls(self):
+        D = self.width
+        W = WALL
+        S = GAP_START
+        E = GAP_END
+
+        if self.openings.get("north"):
+            self._wall(0, 0, S, W)
+            self._wall(E, 0, D - E, W)
         else:
-            self.rotation = (self.rotation - 90) % 360
-        self.vel_x = 0.0
-        self.vel_y = 0.0
+            self._wall(0, 0, D, W)
 
-    def move(self, direction):
-        if direction == "right":
-            speed = PLAYER_SPEED
+        if self.openings.get("south"):
+            self._wall(0, D - W, S, W)
+            self._wall(E, D - W, D - E, W)
         else:
-            speed = -PLAYER_SPEED
+            self._wall(0, D - W, D, W)
 
-        if self.rotation == 0:
-            self.vel_x = speed
-        elif self.rotation == 90:
-            self.vel_y = speed
-        elif self.rotation == 180:
-            self.vel_x = -speed
+        if self.openings.get("west"):
+            self._wall(0, 0, W, S)
+            self._wall(0, E, W, D - E)
         else:
-            self.vel_y = -speed
+            self._wall(0, 0, W, D)
 
-    def jump(self):
-        if not self.on_ground:
-            return
-        jx, jy = _JUMP_VEC[self.rotation]
-        self.vel_x = jx
-        self.vel_y = jy
-
-    def update(self, dt, platforms):
-        global MAX_VEL
-        gx, gy = _GRAVITY_VEC[self.rotation]
-        self.vel_x += gx * dt
-        self.vel_y += gy * dt
-
-        if self.vel_x < -MAX_VEL:
-            self.vel_x = -MAX_VEL
-        elif self.vel_x > MAX_VEL:
-            self.vel_x = MAX_VEL
-
-        if self.vel_y < -MAX_VEL:
-            self.vel_y = -MAX_VEL
-        elif self.vel_y > MAX_VEL:
-            self.vel_y = MAX_VEL
-
-        if self.rotation in (90, 270):
-            pre_speed = abs(self.vel_x)
+        if self.openings.get("east"):
+            self._wall(D - W, 0, W, S)
+            self._wall(D - W, E, W, D - E)
         else:
-            pre_speed = abs(self.vel_y)
+            self._wall(D - W, 0, W, D)
 
-        was_ground = self.on_ground
-        self.vel_x, self.vel_y, self.on_ground = resolve(
-            self.rect, self.vel_x, self.vel_y, self.rotation, platforms, dt
-        )
+    def _build_exit_zones(self):
+        D = self.width
+        t = _EXIT_DEPTH
+        if self.openings.get("north"):
+            self.exit_zones["north"] = Rect(GAP_START, 0, GAP, t)
+        if self.openings.get("south"):
+            self.exit_zones["south"] = Rect(GAP_START, D - t, GAP, t)
+        if self.openings.get("west"):
+            self.exit_zones["west"] = Rect(0, GAP_START, t, GAP)
+        if self.openings.get("east"):
+            self.exit_zones["east"] = Rect(D - t, GAP_START, t, GAP)
 
-        if not was_ground and self.on_ground:
-            if not flags["no_damage"] and pre_speed > FALL_DAMAGE_THRESHOLD:
-                damage = (pre_speed - FALL_DAMAGE_THRESHOLD) * FALL_DAMAGE_MULTIPLIER
-                new_hp = self.hp - damage
-                if new_hp < 0.0:
-                    new_hp = 0.0
-                self.hp = new_hp
+    def setup(self):
+        """Add interior platforms via self.platforms.append(Rect(...))."""
+
+    def spawn_point(self, entry_direction):
+        cx = self.width // 2 - 15
+        cy = self.height // 2 - 22
+        inset = WALL + 80
+
+        if entry_direction == "north":
+            return (cx, inset)
+        elif entry_direction == "south":
+            return (cx, self.height - inset - 45)
+        elif entry_direction == "east":
+            return (self.width - inset - 30, cy)
+        elif entry_direction == "west":
+            return (inset, cy)
+        else:
+            return (cx, cy)
+
+    def get_platforms(self):
+        return self.platforms
+
+    def check_exit(self, player_rect):
+        for direction, zone in self.exit_zones.items():
+            if zone and player_rect.colliderect(zone):
+                return direction
+        return None
 
     def draw(self):
-        py5.fill(*COLORS["player"])
         py5.no_stroke()
-        py5.rect(self.rect.x, self.rect.y, self.rect.w, self.rect.h)
+        py5.background(*COLORS["background"])
+        self._draw_light()
+        py5.fill(*COLORS["platform"])
+        for p in self.platforms:
+            py5.rect(p.x, p.y, p.w, p.h)
+        py5.fill(*COLORS["exit_zone"], 80)
+        for zone in self.exit_zones.values():
+            if zone:
+                py5.rect(zone.x, zone.y, zone.w, zone.h)
 
-    def get_rect(self):
-        return self.rect
+    def _draw_light(self):
+        lx, ly = self.light_x, self.light_y
+        lr, lg, lb = self.light_color
 
-    def is_dead(self):
-        return self.hp <= 0
+        py5.no_stroke()
+        for i in range(_LIGHT_RINGS, -1, -1):
+            t = i / _LIGHT_RINGS
+            radius = _LIGHT_MAX_RADIUS * t
+            alpha = int((1.0 - t) ** 2.5 * 100)
+            py5.fill(lr, lg, lb, alpha)
+            py5.ellipse(lx, ly, radius * 2, radius * 2)
+
+        py5.fill(lr, lg, lb, 230)
+        py5.ellipse(lx, ly, 12, 12)

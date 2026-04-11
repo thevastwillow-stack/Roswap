@@ -1,7 +1,7 @@
 def resolve(rect, vel_x, vel_y, rotation, platforms, dt):
     """
     Move rect by velocity, resolve collisions against platforms, return
-    (vel_x, vel_y, on_ground).  rect is mutated in place.
+    (vel_x, vel_y, on_ground). rect is mutated in place.
     """
     on_ground = False
 
